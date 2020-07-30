@@ -57,37 +57,49 @@ class CustomQueueStatsViewContainer extends React.Component {
         });
 
         liveQuery.on('itemUpdated', item => {
-          const workersStatus = this.state.workspaceStats.workers_status;
+          const workersStatus = new Map(this.state.workspaceStats.workers_status);
           const status = item.value.activity_name.toLowerCase();
           const oldStatus = workersStatus.get(item.value.worker_sid);
 
           workersStatus.set(item.value.worker_sid, status);
 
-          this.setState({
-            workspaceStats: {
-              ...this.state.workspaceStats,
-              activity_statistics: {
-                ...this.state.workspaceStats.activity_statistics,
-                [status]: {
-                  ...this.state.workspaceStats.activity_statistics[status],
-                  workers:
-                    this.state.workspaceStats.activity_statistics[status]
-                      .workers + 1
-                },
-                [oldStatus]: {
-                  ...this.state.workspaceStats.activity_statistics[oldStatus],
-                  workers:
-                    this.state.workspaceStats.activity_statistics[oldStatus]
-                      .workers - 1
-                }
-              },
-              workers_status: workersStatus
-            }
-          });
+          const newWorkspaceStats = { ...this.state.workspaceStats };
 
-          console.log('Item ' + item.key + ' was updated');
-          console.log('Item value: ', item, item.value);
+          if (oldStatus) {
+            const { workers: oldWorkersCount } = newWorkspaceStats.activity_statistics[oldStatus];
+            newWorkspaceStats.activity_statistics[oldStatus].workers = oldWorkersCount - 1
+          }
+
+          const { workers: oldWorkersCount } = newWorkspaceStats.activity_statistics[status];
+          newWorkspaceStats.activity_statistics[status].workers = oldWorkersCount + 1
+          newWorkspaceStats.workers_status = workersStatus;
+          
+          this.setState({
+            workspaceStats: newWorkspaceStats
+          });
         });
+
+        liveQuery.on('itemRemoved', ({ key: workerSid }) => {
+          const workersStatus = new Map(this.state.workspaceStats.workers_status);
+          const removedWorkerStatus = workersStatus.get(workerSid);
+
+          if (!removedWorkerStatus) {
+            console.warn(`status for removed worker ${workerSid} wasn't found for update`);
+            return
+          }
+
+          const newWorkspaceStats = { ...this.state.workspaceStats };
+          
+          const { workers: oldWorkersCount } = newWorkspaceStats.activity_statistics[removedWorkerStatus];
+          newWorkspaceStats.activity_statistics[removedWorkerStatus].workers = oldWorkersCount - 1;
+
+          workersStatus.delete(workerSid);
+          newWorkspaceStats.workers_status = workersStatus;
+
+          this.setState({
+            workspaceStats: newWorkspaceStats
+          });
+        })
 
         const result = {
           activity_statistics: activityStatistics,
