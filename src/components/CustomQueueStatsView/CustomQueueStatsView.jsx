@@ -14,20 +14,20 @@ import {
 import { Grid } from '@material-ui/core';
 import { Marker } from './CustomQueueStatsView.Styles';
 
-const ActiveTasks = props => {
+const ActiveTasks = ({ count }) => {
   return (
     <AggregatedDataTile
       title={<Template source={templates.ActiveTasksTileTitle} />}
-      content='0'
+      content={count}
     />
   );
 };
 
-const WaitingTasks = props => {
+const WaitingTasks = ({ count }) => {
   return (
     <AggregatedDataTile
       title={<Template source={templates.WaitingTasksTileTitle} />}
-      content='0'
+      content={count}
     />
   );
 };
@@ -91,13 +91,16 @@ class AgentByActivityChart extends React.Component {
 const Test = withTheme(AgentByActivityChart)
 
 const CustomQueueStatsView = ({ workspaceStats }) => {
+  const { tasks_by_status } = workspaceStats;
+
+  console.log(workspaceStats, tasks_by_status)
   return (
     <Grid container spacing={24} style={{ padding: '0px 16px' }}>
       <Grid item xs={3}>
-        <ActiveTasks />
+        <ActiveTasks count={tasks_by_status && tasks_by_status.assigned + tasks_by_status.wrapping} />
       </Grid>
       <Grid item xs={3}>
-        <WaitingTasks />
+        <WaitingTasks count={tasks_by_status && tasks_by_status.pending + tasks_by_status.reserved}/>
       </Grid>
       <Grid item xs={3}>
         <LongestWaitingCall />
