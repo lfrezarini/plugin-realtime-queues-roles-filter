@@ -1,12 +1,39 @@
 import React from 'react';
 import CustomQueueStatsView from './CustomQueueStatsView';
 
+const getInitialActivityStatistics = () => {
+  return {
+    offline: {
+      sid: process.env.REACT_APP_ACTIVITY_OFFLINE_SID,
+      workers: 0,
+      friendly_name: 'Offline'
+    },
+    break: {
+      sid: process.env.REACT_APP_ACTIVITY_BREAK_SID,
+      workers: 0,
+      friendly_name: 'Break'
+    },
+    available: {
+      sid: process.env.REACT_APP_ACTIVITY_AVAILABLE_SID,
+      workers: 0,
+      friendly_name: 'Available'
+    },
+    unavailable: {
+      sid: process.env.REACT_APP_ACTIVITY_UNAVAILABLE_SID,
+      workers: 0,
+      friendly_name: 'Unavailable'
+    }
+  };
+};
+
 class CustomQueueStatsViewContainer extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
-      workspaceStats: {}
+      workspaceStats: {},
+      queuesList: new Map(),
+      tasksByQueues: new Map()
     };
 
     this.initWorkerStatistics = this.initWorkerStatistics.bind(this);
@@ -19,76 +46,85 @@ class CustomQueueStatsViewContainer extends React.Component {
     this.isTaskReservedForAnotherTeam = this.isTaskReservedForAnotherTeam.bind(
       this
     );
+    this.clearTaskMovedForAnotherTeam = this.clearTaskMovedForAnotherTeam.bind(
+      this
+    );
   }
 
   async componentDidMount() {
+    // The tasks statistics depends of the Worker's. Hence, we have to wait for the worker's statistics load
+    // before initializing the Tasks's one.
     await this.initWorkerStatistics();
+
+    const liveQuery = await this.props.manager.insightsClient.liveQuery(
+      'tr-queue',
+      ''
+    );
+
+    const tasksByStatus = {
+      reserved: 0,
+      pending: 0,
+      assigned: 0,
+      wrapping: 0
+    };
+
+    const queues = new Map();
+    const tasksByQueues = new Map();
+
+    Object.entries(liveQuery.getItems()).forEach(([queueSid, data]) => {
+      tasksByQueues.set(data.queue_name, {
+        reserved: 0,
+        pending: 0,
+        assigned: 0,
+        wrapping: 0
+      });
+
+      queues.set(data.queue_name, {
+        sid: queueSid,
+        friendly_name: data.queue_name,
+        activity_statistics: getInitialActivityStatistics(),
+        tasks_by_status: tasksByStatus
+      });
+    });
+
+    this.setState({
+      tasksByQueues,
+      queuesList: queues,
+    });
+
     this.initTasksStatistics();
   }
 
   async initWorkerStatistics() {
     const { manager } = this.props;
-
-    const activityStatistics = {
-      offline: {
-        sid: process.env.REACT_APP_ACTIVITY_OFFLINE_SID,
-        workers: 0,
-        friendly_name: 'Offline'
-      },
-      break: {
-        sid: process.env.REACT_APP_ACTIVITY_BREAK_SID,
-        workers: 0,
-        friendly_name: 'Break'
-      },
-      available: {
-        sid: process.env.REACT_APP_ACTIVITY_AVAILABLE_SID,
-        workers: 0,
-        friendly_name: 'Available'
-      },
-      unavailable: {
-        sid: process.env.REACT_APP_ACTIVITY_UNAVAILABLE_SID,
-        workers: 0,
-        friendly_name: 'Unavailable'
-      }
-    };
+    const activityStatistics = getInitialActivityStatistics();
 
     const workersStatus = new Map();
-
     const { attributes: workerAttributes } = manager.workerClient;
 
-    return new Promise(resolve => {
-      // TODO: build expression to support multiple teams
-      manager.insightsClient
-        .liveQuery(
-          'tr-worker',
-          `data.attributes.teams == "${workerAttributes.teams}"`
-        )
-        .then(liveQuery => {
-          const workers = Object.entries(liveQuery.getItems());
-          workers.forEach(([, data]) => {
-            const status = data.activity_name.toLowerCase();
-            activityStatistics[status].workers++;
-            workersStatus.set(data.worker_sid, status);
-          });
+    // TODO: build expression to support multiple teams
+    const liveQuery = await manager.insightsClient.liveQuery(
+      'tr-worker',
+      `data.attributes.teams == "${workerAttributes.teams}"`
+    );
 
-          liveQuery.on('itemUpdated', this.handleWorkerUpdate);
-          liveQuery.on('itemRemoved', this.handleWorkerRemoval);
+    const workers = Object.values(liveQuery.getItems());
+    workers.forEach(data => {
+      const status = data.activity_name.toLowerCase();
+      activityStatistics[status].workers++;
+      workersStatus.set(data.worker_sid, status);
+    });
 
-          const result = {
-            activity_statistics: activityStatistics,
-            total_workers: workers.length,
-            workers_status: workersStatus
-          };
+    liveQuery.on('itemUpdated', this.handleWorkerUpdate);
+    liveQuery.on('itemRemoved', this.handleWorkerRemoval);
 
-          this.setState({
-            workspaceStats: {
-              ...this.state.workspaceStats,
-              ...result
-            }
-          });
-
-          resolve();
-        });
+    this.setState({
+      workspaceStats: {
+        ...this.state.workspaceStats,
+        activity_statistics: activityStatistics,
+        total_workers: workers.length,
+        workers_status: workersStatus
+      }
     });
   }
 
@@ -161,6 +197,7 @@ class CustomQueueStatsViewContainer extends React.Component {
     manager.insightsClient.liveQuery('tr-task', '').then(liveQuery => {
       const tasks = Object.entries(liveQuery.getItems());
       const tasksStatus = new Map();
+      const tasksByQueues = new Map(this.state.tasksByQueues);
 
       tasks.forEach(([, task]) => {
         if (this.isTaskReservedForAnotherTeam(task)) {
@@ -173,12 +210,17 @@ class CustomQueueStatsViewContainer extends React.Component {
           : (tasksByPriority[task.priority] = 1);
 
         tasksStatus.set(task.task_sid, task.status);
+        tasksByQueues.set(task.queue_name, {
+          ...tasksByQueues.get(task.queue_name),
+          [task.status]: tasksByQueues.get(task.queue_name)[task.status] + 1
+        });
       });
 
       liveQuery.on('itemUpdated', this.handleTaskUpdate);
       liveQuery.on('itemRemoved', this.handleTaskRemoval);
 
       this.setState({
+        tasksByQueues,
         workspaceStats: {
           ...this.state.workspaceStats,
           tasks_by_status: tasksByStatus,
@@ -198,31 +240,21 @@ class CustomQueueStatsViewContainer extends React.Component {
 
   handleTaskUpdate({ value: data }) {
     if (this.isTaskReservedForAnotherTeam(data)) {
-      if (this.state.workspaceStats.tasks_status.has(data.task_sid)) {
-        const updatedTasksStatus = new Map(
-          this.state.workspaceStats.tasks_status
-        );
-        const newWorkspaceStats = { ...this.state.workspaceStats };
-
-        const lastTaskStatus = updatedTasksStatus.get(data.task_sid);
-        newWorkspaceStats.tasks_by_status[lastTaskStatus]--;
-
-        updatedTasksStatus.delete(data.task_sid);
-        newWorkspaceStats.tasks_status = updatedTasksStatus;
-
-        this.setState({ workspaceStats: newWorkspaceStats });
-      }
-
-      return;
+      return this.clearTaskMovedForAnotherTeam(data);
     }
 
     const updatedTasksStatus = new Map(this.state.workspaceStats.tasks_status);
 
     const oldTaskStatus = updatedTasksStatus.get(data.task_sid);
     const newWorkspaceStats = { ...this.state.workspaceStats };
+    const newTasksByQueues = new Map(this.state.tasksByQueues);
 
     if (oldTaskStatus) {
       newWorkspaceStats.tasks_by_status[oldTaskStatus]--;
+      newTasksByQueues.set(data.queue_name, {
+        ...newTasksByQueues.get(data.queue_name),
+        [oldTaskStatus]: newTasksByQueues.get(data.queue_name)[oldTaskStatus] - 1
+      });
     }
 
     newWorkspaceStats.tasks_by_status[data.status]++;
@@ -231,7 +263,29 @@ class CustomQueueStatsViewContainer extends React.Component {
     // TODO: verify better name for "task status" variable
     newWorkspaceStats.tasks_status = updatedTasksStatus;
 
-    this.setState({ workspaceStats: newWorkspaceStats });
+    newTasksByQueues.set(data.queue_name, {
+      ...newTasksByQueues.get(data.queue_name),
+      [data.status]: newTasksByQueues.get(data.queue_name)[data.status] + 1
+    });
+
+    this.setState({ workspaceStats: newWorkspaceStats, tasksByQueues: newTasksByQueues });
+  }
+
+  clearTaskMovedForAnotherTeam(data) {
+    if (this.state.workspaceStats.tasks_status.has(data.task_sid)) {
+      const updatedTasksStatus = new Map(
+        this.state.workspaceStats.tasks_status
+      );
+      const newWorkspaceStats = { ...this.state.workspaceStats };
+
+      const lastTaskStatus = updatedTasksStatus.get(data.task_sid);
+      newWorkspaceStats.tasks_by_status[lastTaskStatus]--;
+
+      updatedTasksStatus.delete(data.task_sid);
+      newWorkspaceStats.tasks_status = updatedTasksStatus;
+
+      this.setState({ workspaceStats: newWorkspaceStats });
+    }
   }
 
   handleTaskRemoval({ key: taskSid }) {
@@ -261,7 +315,13 @@ class CustomQueueStatsViewContainer extends React.Component {
   }
 
   render() {
-    return <CustomQueueStatsView workspaceStats={this.state.workspaceStats} />;
+    return (
+      <CustomQueueStatsView
+        workspaceStats={this.state.workspaceStats}
+        queuesList={this.state.queuesList}
+        tasksByQueues={this.state.tasksByQueues}
+      />
+    );
   }
 }
 
