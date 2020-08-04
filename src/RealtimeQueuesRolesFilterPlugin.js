@@ -7,26 +7,6 @@ import CustomQueueStatsViewContainer from './components/CustomQueueStatsView/Cus
 
 const PLUGIN_NAME = 'RealtimeQueuesRolesFilterPlugin';
 
-const select = state => {
-  return state.flex.realtimeQueues;
-};
-
-function observeStore(store, select, onChange) {
-  let currentState;
-
-  function handleChange() {
-    let nextState = select(store.getState());
-    if (nextState !== currentState) {
-      onChange(currentState, nextState);
-      currentState = nextState;
-    }
-  }
-
-  let unsubscribe = store.subscribe(handleChange);
-  handleChange();
-  return unsubscribe;
-}
-
 export default class RealtimeQueuesRolesFilterPlugin extends FlexPlugin {
   constructor() {
     super(PLUGIN_NAME);

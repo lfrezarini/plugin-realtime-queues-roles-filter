@@ -27,7 +27,7 @@ const QueueStatsView = ({
         </TableHead>
         <TableBody>
           {Array.from(queuesList.values()).map(queue => {
-            const { friendly_name, sid, tasks_by_status } = queue;
+            const { friendly_name, sid } = queue;
             const queueTasks = tasksByQueues.get(friendly_name);
 
             return (
