@@ -1,7 +1,7 @@
 const SET_WORKSPACE_STATS = `plugin/queue-stats/SET_WORKSPACE_STATS`;
 
-const initialState = {
-  activity_statistics: {
+export const getInitialAcitvityStatistics = () => {
+  return {
     offline: {
       sid: process.env.REACT_APP_ACTIVITY_OFFLINE_SID,
       workers: 0,
@@ -22,7 +22,11 @@ const initialState = {
       workers: 0,
       friendly_name: 'Unavailable'
     }
-  },
+  }
+}
+
+const initialState = {
+  activity_statistics: getInitialAcitvityStatistics(),
   tasks_by_priority: {},
   tasks_by_status: {
     assigned: 0,

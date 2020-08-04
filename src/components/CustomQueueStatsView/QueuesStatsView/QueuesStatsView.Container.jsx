@@ -32,27 +32,19 @@ const getInitialActivityStatistics = () => {
 
 class QueueStatsViewContainer extends React.Component {
   async componentDidMount() {
-    const { queuesList, tasksByQueues, setQueuesList, setTasksByQueues } = this.props;
+    const { queuesList, tasksByQueues, setQueuesList, setTasksByQueues, workspaceStats } = this.props;
     const liveQuery = await this.props.manager.insightsClient.liveQuery(
       'tr-queue',
       ''
     );
 
-    const tasksByStatus = {
-      reserved: 0,
-      pending: 0,
-      assigned: 0,
-      wrapping: 0
-    };
-
     const queues = new Map(queuesList);
-    
+
     Object.entries(liveQuery.getItems()).forEach(([queueSid, data]) => {
       queues.set(data.queue_name, {
         sid: queueSid,
         friendly_name: data.queue_name,
-        activity_statistics: getInitialActivityStatistics(),
-        tasks_by_status: tasksByStatus
+        activity_statistics: getInitialActivityStatistics()
       });
     });
 
@@ -60,9 +52,21 @@ class QueueStatsViewContainer extends React.Component {
   }
 
   render() {
-    const { queuesList, tasksByQueues } = this.props.queuesStats;
+    const { queuesList } = this.props.queuesStats;
+    const { tasks_list } = this.props.workspaceStats;
 
-    console.log('props', this.props)
+    console.log('workspace stats', this.props.workspaceStats)
+    const tasksByQueues = Array.from(tasks_list.values()).reduce((tasksByQueues, task) => {
+      const tasksAlreadyComputed = tasksByQueues.get(task.queue_name) && tasksByQueues.get(task.queue_name)[task.satus] || 0;
+
+      tasksByQueues.set(task.queue_name, {
+        ...tasksByQueues.get(task.queue_name),
+        [task.status]: tasksAlreadyComputed + 1
+      });
+
+      return tasksByQueues;
+    }, new Map());
+
     return (
       <QueueStatsView
         queuesList={queuesList}
@@ -73,6 +77,7 @@ class QueueStatsViewContainer extends React.Component {
 }
 
 const mapStateToProps = state => ({
+  workspaceStats: state['realtime-queues-roles-filter'].workspaceStats,
   queuesStats: state['realtime-queues-roles-filter'].queuesStats
 });
 

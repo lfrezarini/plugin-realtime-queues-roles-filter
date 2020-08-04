@@ -3,9 +3,7 @@ import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 
 import WorkspaceStatsView from './WorkspaceStatsView';
-import { Actions as WorkspaceActions } from '../../../states/WorkspaceStats';
-import { Actions as QueuesStatsActions } from '../../../states/QueuesStats';
-
+import { Actions as WorkspaceActions, getInitialAcitvityStatistics } from '../../../states/WorkspaceStats';
 
 class WorkspaceStatsViewContainer extends React.Component {
   constructor(props) {
@@ -34,14 +32,12 @@ class WorkspaceStatsViewContainer extends React.Component {
   }
 
   async initWorkerStatistics() {
-    const { workspaceStats, setWorkspaceStats, manager } = this.props;
-    const {
-      activity_statistics: activityStatistics,
-      workers_status: workersStatus
-    } = { ...workspaceStats }; // using spread operator to avoid modifying props directly
+    const { setWorkspaceStats, manager } = this.props;
 
     const { attributes: workerAttributes } = manager.workerClient;
 
+    const activityStatistics = getInitialAcitvityStatistics();
+    const workersStatus = new Map();
     // TODO: build expression to support multiple teams
     const liveQuery = await manager.insightsClient.liveQuery(
       'tr-worker',
@@ -118,8 +114,7 @@ class WorkspaceStatsViewContainer extends React.Component {
   }
 
   initTasksStatistics() {
-    const { manager, setWorkspaceStats, setTasksByQueues, queuesStats } = this.props;
-    const { tasksByQueues } = queuesStats;
+    const { manager, setWorkspaceStats } = this.props;
 
     const tasksByPriority = {};
     const tasksByStatus = {
@@ -132,7 +127,6 @@ class WorkspaceStatsViewContainer extends React.Component {
     manager.insightsClient.liveQuery('tr-task', '').then(liveQuery => {
       const tasks = Object.values(liveQuery.getItems());
       const tasksList = new Map();
-      const updatedTasksByQueues = new Map(tasksByQueues);
 
       tasks.forEach((task) => {
         if (this.isTaskReservedForAnotherTeam(task)) {
@@ -145,13 +139,6 @@ class WorkspaceStatsViewContainer extends React.Component {
           : (tasksByPriority[task.priority] = 1);
 
         tasksList.set(task.task_sid, task);
-
-        const queueTasksCount = tasksByQueues.get(task.queue_name) && tasksByQueues.get(task.queue_name)[task.status] || 0;
-        
-        updatedTasksByQueues.set(task.queue_name, {	
-          ...tasksByQueues.get(task.queue_name),	
-          [task.status]: queueTasksCount + 1
-        });
       });
 
       liveQuery.on('itemUpdated', this.handleTaskUpdate);
@@ -163,8 +150,6 @@ class WorkspaceStatsViewContainer extends React.Component {
         total_tasks: tasks.length,
         tasks_list: tasksList
       });
-
-      setTasksByQueues(updatedTasksByQueues);
     });
   }
 
@@ -179,49 +164,28 @@ class WorkspaceStatsViewContainer extends React.Component {
       return this.clearTaskMovedForAnotherTeam(data);
     }
 
-    const { workspaceStats, setWorkspaceStats, queuesStats, setTasksByQueues } = this.props;
-    const { tasksByQueues } = queuesStats;
+    const { workspaceStats, setWorkspaceStats } = this.props;
 
     const updatedTasksList = new Map(workspaceStats.tasks_list);
-    const updatedTasksByQueues = new Map(tasksByQueues);
 
     const oldTaskStatus = updatedTasksList.get(data.task_sid) && updatedTasksList.get(data.task_sid).status;
     const updatedTasksByStatus = { ...workspaceStats.tasks_by_status };
 
     if (oldTaskStatus) {
       updatedTasksByStatus[oldTaskStatus]--;
-
-      const oldQueueTasksCount = tasksByQueues.get(data.queue_name) && tasksByQueues.get(data.queue_name)[oldTaskStatus];
-
-      if (oldQueueTasksCount) {
-        updatedTasksByQueues.set(data.queue_name, {	
-          ...updatedTasksByQueues.get(data.queue_name),	
-          [oldTaskStatus]: oldQueueTasksCount - 1
-        });
-      }
     }
     
     updatedTasksByStatus[data.status]++;
     updatedTasksList.set(data.task_sid, data);
 
-    const queueTasksCount = tasksByQueues.get(data.queue_name) && tasksByQueues.get(data.queue_name)[data.status] || 0;
-
-    updatedTasksByQueues.set(data.queue_name, {	
-      ...updatedTasksByQueues.get(data.queue_name),	
-      [data.status]: queueTasksCount + 1
-    });
-
     setWorkspaceStats({
       tasks_list: updatedTasksList,
       tasks_by_status: updatedTasksByStatus
     });
-
-    setTasksByQueues(updatedTasksByQueues);
   }
 
   clearTaskMovedForAnotherTeam(data) {
-    const { workspaceStats, setWorkspaceStats, queuesStats, setTasksByQueues } = this.props;
-    const { tasksByQueues } = queuesStats;
+    const { workspaceStats, setWorkspaceStats } = this.props;
 
     if (workspaceStats.tasks_list.has(data.task_sid)) {
       const updatedTasksStatus = new Map(workspaceStats.tasks_list);
@@ -231,18 +195,6 @@ class WorkspaceStatsViewContainer extends React.Component {
       
       updatedTasksByStatus[lastTaskStatus]--;
       updatedTasksStatus.delete(data.task_sid);
-
-      const updatedTasksByQueues = new Map(tasksByQueues);
-      const oldQueueTasksCount = updatedTasksByQueues.get(data.queue_name) && updatedTasksByQueues.get(data.queue_name)[lastTaskStatus] || 0;
-
-      if (oldQueueTasksCount) {
-        updatedTasksByQueues.set(data.queue_name, {	
-          ...updatedTasksByQueues.get(data.queue_name),	
-          [lastTaskStatus]: oldQueueTasksCount - 1
-        });
-      }
-
-      setTasksByQueues(updatedTasksByQueues)
 
       setWorkspaceStats({ 
         tasks_by_status: updatedTasksByStatus,
@@ -256,8 +208,7 @@ class WorkspaceStatsViewContainer extends React.Component {
     //   return;
     // }
 
-    const { workspaceStats, setWorkspaceStats, queuesStats, setTasksByQueues } = this.props;
-    const { tasksByQueues } = queuesStats;
+    const { workspaceStats, setWorkspaceStats } = this.props;
 
     const updatedTasksStatus = new Map(workspaceStats.tasks_list);
     const task = updatedTasksStatus.get(taskSid);
@@ -274,21 +225,10 @@ class WorkspaceStatsViewContainer extends React.Component {
     updatedTasksByStatus[lastTaskStatus]--;
     updatedTasksStatus.delete(taskSid);
 
-    const updatedTasksByQueues = new Map(tasksByQueues);
-
-    const queueTasksCount = updatedTasksByQueues.get(task.queue_name) && updatedTasksByQueues.get(task.queue_name)[task.status] || 0;
-
-    updatedTasksByQueues.set(task.queue_name, {	
-      ...updatedTasksByQueues.get(task.queue_name),	
-      [lastTaskStatus]: queueTasksCount - 1
-    });
-
     setWorkspaceStats({
       tasks_by_status: updatedTasksByStatus,
       tasks_list: updatedTasksStatus
     });
-
-    setTasksByQueues(updatedTasksByQueues);
   }
 
   render() {
@@ -298,12 +238,10 @@ class WorkspaceStatsViewContainer extends React.Component {
 
 const mapStateToProps = state => ({
   workspaceStats: state['realtime-queues-roles-filter'].workspaceStats,
-  queuesStats: state['realtime-queues-roles-filter'].queuesStats
 });
 
 const mapDispatchToProps = dispatch => ({
   setWorkspaceStats: bindActionCreators(WorkspaceActions.setWorkspaceStats, dispatch),
-  setTasksByQueues: bindActionCreators(QueuesStatsActions.setTasksByQueues, dispatch)
 });
 
 export default connect(
