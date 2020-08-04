@@ -30,10 +30,10 @@ const initialState = {
     reserved: 0,
     wrapping: 0
   },
-  tasks_status: new Map(),
+  tasks_list: new Map(),
   total_tasks: 0,
   total_workers: 0,
-  workers_status: new Map()
+  workers_status: new Map(),
 };
 
 export class Actions {

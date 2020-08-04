@@ -27,17 +27,17 @@ const QueueStatsView = ({
         </TableHead>
         <TableBody>
           {Array.from(queuesList.values()).map(queue => {
-            const { friendly_name, tasks_by_status } = queue;
+            const { friendly_name, sid, tasks_by_status } = queue;
             const queueTasks = tasksByQueues.get(friendly_name);
 
             return (
-              <TableRow>
+              <TableRow key={sid}>
                 <TableCell>{friendly_name}</TableCell>
                 <TableCell>
-                  {queueTasks && queueTasks.assigned + queueTasks.wrapping}
+                  {queueTasks && (queueTasks.assigned || 0) + (queueTasks.wrapping || 0) || 0}
                 </TableCell>
                 <TableCell>
-                  {queueTasks && queueTasks.pending + queueTasks.reserved}
+                  {queueTasks && (queueTasks.pending || 0) + (queueTasks.reserved || 0) || 0}
                 </TableCell>
                 <TableCell>{0}</TableCell>
                 <TableCell>{queue.friendly_name}</TableCell>
