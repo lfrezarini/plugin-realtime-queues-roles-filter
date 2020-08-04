@@ -200,7 +200,7 @@ class WorkspaceStatsViewContainer extends React.Component {
         });
       }
     }
-
+    
     updatedTasksByStatus[data.status]++;
     updatedTasksList.set(data.task_sid, data);
 
@@ -220,15 +220,29 @@ class WorkspaceStatsViewContainer extends React.Component {
   }
 
   clearTaskMovedForAnotherTeam(data) {
-    const { workspaceStats, setWorkspaceStats } = this.props;
+    const { workspaceStats, setWorkspaceStats, queuesStats, setTasksByQueues } = this.props;
+    const { tasksByQueues } = queuesStats;
+
     if (workspaceStats.tasks_list.has(data.task_sid)) {
       const updatedTasksStatus = new Map(workspaceStats.tasks_list);
       const updatedTasksByStatus = { ...workspaceStats.tasks_by_status };
 
-      const lastTaskStatus = updatedTasksStatus.get(data.task_sid);
+      const lastTaskStatus = updatedTasksStatus.get(data.task_sid).status;
       
       updatedTasksByStatus[lastTaskStatus]--;
       updatedTasksStatus.delete(data.task_sid);
+
+      const updatedTasksByQueues = new Map(tasksByQueues);
+      const oldQueueTasksCount = updatedTasksByQueues.get(data.queue_name) && updatedTasksByQueues.get(data.queue_name)[lastTaskStatus] || 0;
+
+      if (oldQueueTasksCount) {
+        updatedTasksByQueues.set(data.queue_name, {	
+          ...updatedTasksByQueues.get(data.queue_name),	
+          [lastTaskStatus]: oldQueueTasksCount - 1
+        });
+      }
+
+      setTasksByQueues(updatedTasksByQueues)
 
       setWorkspaceStats({ 
         tasks_by_status: updatedTasksByStatus,
