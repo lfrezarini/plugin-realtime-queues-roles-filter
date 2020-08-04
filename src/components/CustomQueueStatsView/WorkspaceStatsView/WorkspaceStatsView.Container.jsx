@@ -204,14 +204,14 @@ class WorkspaceStatsViewContainer extends React.Component {
   }
 
   handleTaskRemoval({ key: taskSid }) {
-    // if (this.isTaskReservedForAnotherTeam()) {
-    //   return;
-    // }
-
     const { workspaceStats, setWorkspaceStats } = this.props;
-
     const updatedTasksStatus = new Map(workspaceStats.tasks_list);
     const task = updatedTasksStatus.get(taskSid);
+
+    if (!task || this.isTaskReservedForAnotherTeam(task)) {
+      return;
+    }
+
     const lastTaskStatus = task && updatedTasksStatus.get(taskSid).status;
 
     if (!lastTaskStatus) {

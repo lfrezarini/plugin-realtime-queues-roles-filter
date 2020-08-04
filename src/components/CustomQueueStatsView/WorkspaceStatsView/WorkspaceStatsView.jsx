@@ -89,8 +89,7 @@ const ThemedAgentByActivityChart = withTheme(AgentByActivityChart);
 
 const WorkspaceStatsView = ({ workspaceStats }) => {
   const { tasks_by_status } = workspaceStats;
-
-  console.log(workspaceStats, tasks_by_status);
+  
   return (
     <Grid container spacing={24} style={{ padding: '0px 16px' }}>
       <Grid item xs={3}>
