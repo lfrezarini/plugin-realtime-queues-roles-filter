@@ -37,7 +37,7 @@ const initialState = {
   tasks_list: new Map(),
   total_tasks: 0,
   total_workers: 0,
-  workers_status: new Map(),
+  workers: new Map(),
 };
 
 export class Actions {

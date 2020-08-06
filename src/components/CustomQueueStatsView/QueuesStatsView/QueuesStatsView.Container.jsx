@@ -20,6 +20,8 @@ class QueueStatsViewContainer extends React.Component {
         sid: queueSid,
         friendly_name: data.queue_name
       });
+
+      console.log(data);
     });
 
     setQueuesList(queues);
@@ -27,7 +29,7 @@ class QueueStatsViewContainer extends React.Component {
 
   render() {
     const { queuesList } = this.props.queuesStats;
-    const { tasks_list } = this.props.workspaceStats;
+    const { tasks_list, workers } = this.props.workspaceStats;
 
     const tasksByQueues = Array.from(tasks_list.values()).reduce((tasksByQueues, task) => {
       const tasksAlreadyComputed = tasksByQueues.get(task.queue_name) && tasksByQueues.get(task.queue_name)[task.satus] || 0;
@@ -40,10 +42,28 @@ class QueueStatsViewContainer extends React.Component {
       return tasksByQueues;
     }, new Map());
 
+    const workersByQueue = Array.from(workers.values()).reduce((workersByQueue, worker) => {
+      const { teams } = worker.attributes;
+
+      teams.forEach((team) => {
+        const workersAlreadyComputed = workersByQueue.get(team) && workersByQueue.get(team)[worker.activity_name.toLowerCase()] || 0;
+
+        workersByQueue.set(team, {
+          ...workersByQueue.get(team),
+          [worker.activity_name.toLowerCase()]: workersAlreadyComputed + 1
+        })
+      });
+
+      return workersByQueue;
+    }, new Map());
+
+    console.log('here', workersByQueue)
+  
     return (
       <QueueStatsView
         queuesList={queuesList}
         tasksByQueues={tasksByQueues}
+        workersByQueue={workersByQueue}
       />
     );
   }

@@ -3,7 +3,10 @@ import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 
 import WorkspaceStatsView from './WorkspaceStatsView';
-import { Actions as WorkspaceActions, getInitialAcitvityStatistics } from '../../../states/WorkspaceStats';
+import {
+  Actions as WorkspaceActions,
+  getInitialAcitvityStatistics
+} from '../../../states/WorkspaceStats';
 
 class WorkspaceStatsViewContainer extends React.Component {
   constructor(props) {
@@ -37,51 +40,52 @@ class WorkspaceStatsViewContainer extends React.Component {
     const { attributes: workerAttributes } = manager.workerClient;
 
     const activityStatistics = getInitialAcitvityStatistics();
-    const workersStatus = new Map();
+    const workers = new Map();
     // TODO: build expression to support multiple teams
     const liveQuery = await manager.insightsClient.liveQuery(
       'tr-worker',
       `data.attributes.teams == "${workerAttributes.teams}"`
     );
 
-    const workers = Object.values(liveQuery.getItems());
+    const items = Object.values(liveQuery.getItems());
 
-    workers.forEach(data => {
+    items.forEach(data => {
       const status = data.activity_name.toLowerCase();
       activityStatistics[status].workers++;
-      workersStatus.set(data.worker_sid, status);
+      workers.set(data.worker_sid, data);
     });
 
     liveQuery.on('itemUpdated', this.handleWorkerUpdate);
     liveQuery.on('itemRemoved', this.handleWorkerRemoval);
 
     setWorkspaceStats({
+      workers,
       activity_statistics: activityStatistics,
-      total_workers: workers.length,
-      workers_status: workersStatus
+      total_workers: workers.length
     });
   }
 
   handleWorkerUpdate({ value: data }) {
     const { setWorkspaceStats, workspaceStats } = this.props;
 
-    const newWorkerStatus = new Map(workspaceStats.workers_status);
-    const status = data.activity_name.toLowerCase();
-    const oldStatus = newWorkerStatus.get(data.worker_sid);
+    const newWorkersList = new Map(workspaceStats.workers);
+    const worker = newWorkersList.get(data.worker_sid);
+    const newStatus = data.activity_name.toLowerCase();
+    const oldStatus = worker && worker.activity_name.toLowerCase();
 
     const newActivityStatistics = { ...workspaceStats.activity_statistics };
 
-    if (oldStatus) {
-      const { workers: oldWorkersCount } = newActivityStatistics[oldStatus];
-      newActivityStatistics[oldStatus].workers = oldWorkersCount - 1;
+    if (worker) {
+      const { workers: workersCount } = newActivityStatistics[oldStatus];
+      newActivityStatistics[oldStatus].workers = workersCount - 1;
     }
 
-    const { workers: oldWorkersCount } = newActivityStatistics[status];
-    newActivityStatistics[status].workers = oldWorkersCount + 1;
-    newWorkerStatus.set(data.worker_sid, status);
+    const { workers: workersCount } = newActivityStatistics[newStatus];
+    newActivityStatistics[newStatus].workers = workersCount + 1;
+    newWorkersList.set(data.worker_sid, data);
 
     setWorkspaceStats({
-      workers_status: newWorkerStatus,
+      workers: newWorkersList,
       activity_statistics: newActivityStatistics
     });
   }
@@ -89,28 +93,28 @@ class WorkspaceStatsViewContainer extends React.Component {
   handleWorkerRemoval({ key: workerSid }) {
     const { workspaceStats, setWorkspaceStats } = this.props;
 
-    const workersStatus = new Map(workspaceStats.workers_status);
-    const removedWorkerStatus = workersStatus.get(workerSid);
+    const workers = new Map(workspaceStats.workers);
+    const removedWorker = workers.get(workerSid);
 
-    if (!removedWorkerStatus) {
+    if (!removedWorker) {
       console.warn(
         `status for removed worker ${workerSid} wasn't found for update`
       );
       return;
     }
 
-    const newWorkspaceStats = { workspaceStats };
-
-    const { workers: oldWorkersCount } = newWorkspaceStats.activity_statistics[
-      removedWorkerStatus
+    const { activity_statistics } = workspaceStats;
+    const { workers: oldWorkersCount } = activity_statistics[
+      removedWorker.activity_name.toLowerCase()
     ];
-    newWorkspaceStats.activity_statistics[removedWorkerStatus].workers =
-      oldWorkersCount - 1;
 
-    workersStatus.delete(workerSid);
-    newWorkspaceStats.workers_status = workersStatus;
+    activity_statistics[removedWorker].workers = oldWorkersCount - 1;
+    workers.delete(workerSid);
 
-    setWorkspaceStats(newWorkspaceStats);
+    setWorkspaceStats({
+      activity_statistics,
+      workers
+    });
   }
 
   initTasksStatistics() {
@@ -128,7 +132,7 @@ class WorkspaceStatsViewContainer extends React.Component {
       const tasks = Object.values(liveQuery.getItems());
       const tasksList = new Map();
 
-      tasks.forEach((task) => {
+      tasks.forEach(task => {
         if (this.isTaskReservedForAnotherTeam(task)) {
           return;
         }
@@ -154,9 +158,9 @@ class WorkspaceStatsViewContainer extends React.Component {
   }
 
   isTaskReservedForAnotherTeam(task) {
-    const { workers_status } = this.props.workspaceStats;
+    const { workers } = this.props.workspaceStats;
 
-    return task.status !== 'pending' && !workers_status.has(task.worker_sid);
+    return task.status !== 'pending' && !workers.has(task.worker_sid);
   }
 
   handleTaskUpdate({ value: data }) {
@@ -168,13 +172,15 @@ class WorkspaceStatsViewContainer extends React.Component {
 
     const updatedTasksList = new Map(workspaceStats.tasks_list);
 
-    const oldTaskStatus = updatedTasksList.get(data.task_sid) && updatedTasksList.get(data.task_sid).status;
+    const oldTaskStatus =
+      updatedTasksList.get(data.task_sid) &&
+      updatedTasksList.get(data.task_sid).status;
     const updatedTasksByStatus = { ...workspaceStats.tasks_by_status };
 
     if (oldTaskStatus) {
       updatedTasksByStatus[oldTaskStatus]--;
     }
-    
+
     updatedTasksByStatus[data.status]++;
     updatedTasksList.set(data.task_sid, data);
 
@@ -192,11 +198,11 @@ class WorkspaceStatsViewContainer extends React.Component {
       const updatedTasksByStatus = { ...workspaceStats.tasks_by_status };
 
       const lastTaskStatus = updatedTasksStatus.get(data.task_sid).status;
-      
+
       updatedTasksByStatus[lastTaskStatus]--;
       updatedTasksStatus.delete(data.task_sid);
 
-      setWorkspaceStats({ 
+      setWorkspaceStats({
         tasks_by_status: updatedTasksByStatus,
         tasks_list: updatedTasksStatus
       });
@@ -237,11 +243,14 @@ class WorkspaceStatsViewContainer extends React.Component {
 }
 
 const mapStateToProps = state => ({
-  workspaceStats: state['realtime-queues-roles-filter'].workspaceStats,
+  workspaceStats: state['realtime-queues-roles-filter'].workspaceStats
 });
 
 const mapDispatchToProps = dispatch => ({
-  setWorkspaceStats: bindActionCreators(WorkspaceActions.setWorkspaceStats, dispatch),
+  setWorkspaceStats: bindActionCreators(
+    WorkspaceActions.setWorkspaceStats,
+    dispatch
+  )
 });
 
 export default connect(
