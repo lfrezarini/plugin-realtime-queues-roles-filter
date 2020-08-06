@@ -7,8 +7,12 @@ class CustomQueueStatsViewContainer extends React.Component {
   render() {
     return (
       <>
-        <WorkspaceStatsViewContainer {...this.props} />
-        <QueueStatsViewContainer {...this.props} />
+        <div>
+          <WorkspaceStatsViewContainer {...this.props} />
+        </div>
+        <div style={{marginTop: 48}}>
+          <QueueStatsViewContainer {...this.props} />
+        </div>
       </>
     );
   }

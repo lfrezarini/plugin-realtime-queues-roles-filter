@@ -1,69 +1,28 @@
 import React from 'react';
 
 import {
-  Grid,
   Table,
   TableRow,
   TableCell,
   TableBody,
   TableHead
 } from '@material-ui/core';
-import { templates, Legend, withTheme } from '@twilio/flex-ui';
-import { Marker } from '../WorkspaceStatsView/WorkspaceStatsView.Styles';
+import { withTheme } from '@twilio/flex-ui';
+import { QueueTableRow } from './QueuesStatsView.Styles';
+import { QueueAgents } from './QueuesStatsView.Components';
 
-class QueueAgents extends React.Component {
-  render() {
-    const {
-      availableAgents = 0,
-      unavailableAgents = 0,
-      offlineAgents = 0,
-      theme
-    } = this.props;
-
-    const mappedProps = [
-      {
-        value: availableAgents,
-        label: templates.AgentStatusAvailable
-          ? templates.AgentStatusAvailable()
-          : '',
-        color: theme ? theme.colors.agentAvailableColor : '',
-        renderMarker: props => <Marker color={props.color} icon='Accept' />
-      },
-      {
-        value: unavailableAgents,
-        label: templates.AgentStatusUnavailable
-          ? templates.AgentStatusUnavailable()
-          : '',
-        color: theme ? theme.colors.agentUnavailableColor : '',
-        renderMarker: props => <Marker color={props.color} icon='Close' />
-      },
-      {
-        value: offlineAgents,
-        label: templates.AgentStatusOffline
-          ? templates.AgentStatusOffline()
-          : '',
-        color: theme ? theme.colors.agentOfflineColor : '',
-        renderMarker: props => <Marker color={props.color} icon='Minus' />
-      }
-    ];
-
-    return <Legend items={mappedProps} showLabels={false} />;
-  }
-}
 
 const ThemedQueuesAgent = withTheme(QueueAgents);
 
 const QueueStatsView = ({ queuesList, tasksByQueues, workersByQueue }) => {
   return (
-    <Grid>
-      <Table>
+      <Table style={{ tableLayout: "auto" }}>
         <TableHead>
           <TableRow>
-            <TableCell>Queue</TableCell>
+            <TableCell style={{maxWidth: '200px', marginLeft: 18}}>Queue</TableCell>
             <TableCell>Active</TableCell>
             <TableCell>Waiting</TableCell>
-            <TableCell>Longest</TableCell>
-            <TableCell>Agents</TableCell>
+            <TableCell style={{maxWidth: '20px', paddingRight: '5px'}}>Agents</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -71,34 +30,31 @@ const QueueStatsView = ({ queuesList, tasksByQueues, workersByQueue }) => {
             const { friendly_name, sid } = queue;
             const queueTasks = tasksByQueues.get(friendly_name);
 
-            console.log(workersByQueue)
             return (
-              <TableRow key={sid}>
-                <TableCell>{friendly_name}</TableCell>
-                <TableCell>
+              <QueueTableRow key={sid}>
+                <TableCell className="queue-table-cell" style={{maxWidth: '200px', paddingLeft: 18}}>{friendly_name}</TableCell>
+                <TableCell className="queue-table-cell">
                   {(queueTasks &&
                     (queueTasks.assigned || 0) + (queueTasks.wrapping || 0)) ||
                     0}
                 </TableCell>
-                <TableCell>
+                <TableCell className="queue-table-cell">
                   {(queueTasks &&
                     (queueTasks.pending || 0) + (queueTasks.reserved || 0)) ||
                     0}
                 </TableCell>
-                <TableCell>{0}</TableCell>
-                <TableCell>
-                  <ThemedQueuesAgent 
+                <TableCell className="queue-table-cell agents-stats">
+                  <QueueAgents 
                     availableAgents={workersByQueue.get(friendly_name) && workersByQueue.get(friendly_name).available} 
                     unavailableAgents={workersByQueue.get(friendly_name) && workersByQueue.get(friendly_name).unavailable}
                     offlineAgents={workersByQueue.get(friendly_name) && workersByQueue.get(friendly_name).offline} 
                   />
                 </TableCell>
-              </TableRow>
+              </QueueTableRow>
             );
           })}
         </TableBody>
       </Table>
-    </Grid>
   );
 };
 

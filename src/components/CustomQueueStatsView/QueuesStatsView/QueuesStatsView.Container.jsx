@@ -20,8 +20,6 @@ class QueueStatsViewContainer extends React.Component {
         sid: queueSid,
         friendly_name: data.queue_name
       });
-
-      console.log(data);
     });
 
     setQueuesList(queues);
@@ -56,8 +54,6 @@ class QueueStatsViewContainer extends React.Component {
 
       return workersByQueue;
     }, new Map());
-
-    console.log('here', workersByQueue)
   
     return (
       <QueueStatsView
