@@ -41,6 +41,7 @@ class WorkspaceStatsViewContainer extends React.Component {
 
     const activityStatistics = getInitialAcitvityStatistics();
     const workers = new Map();
+    
     // TODO: build expression to support multiple teams
     const liveQuery = await manager.insightsClient.liveQuery(
       'tr-worker',
@@ -61,7 +62,6 @@ class WorkspaceStatsViewContainer extends React.Component {
     setWorkspaceStats({
       workers,
       activity_statistics: activityStatistics,
-      total_workers: workers.length
     });
   }
 
@@ -118,7 +118,8 @@ class WorkspaceStatsViewContainer extends React.Component {
   }
 
   initTasksStatistics() {
-    const { manager, setWorkspaceStats } = this.props;
+    const { manager, setWorkspaceStats, supervisors } = this.props;
+    const { attributes } = manager.workerClient;
 
     const tasksByPriority = {};
     const tasksByStatus = {
@@ -128,7 +129,12 @@ class WorkspaceStatsViewContainer extends React.Component {
       wrapping: 0
     };
 
-    manager.insightsClient.liveQuery('tr-task', '').then(liveQuery => {
+    const supervisor = supervisors.find((supervisor) => supervisor.email === attributes.email)
+    const queuesListExpression = supervisor.queues
+      .map(queue => `"${queue}"`)
+      .join(",");
+
+    manager.insightsClient.liveQuery('tr-task', `data.queue_name IN [${queuesListExpression}]`).then(liveQuery => {
       const tasks = Object.values(liveQuery.getItems());
       const tasksList = new Map();
 
@@ -151,7 +157,6 @@ class WorkspaceStatsViewContainer extends React.Component {
       setWorkspaceStats({
         tasks_by_status: tasksByStatus,
         tasks_by_priority: tasksByPriority,
-        total_tasks: tasks.length,
         tasks_list: tasksList
       });
     });

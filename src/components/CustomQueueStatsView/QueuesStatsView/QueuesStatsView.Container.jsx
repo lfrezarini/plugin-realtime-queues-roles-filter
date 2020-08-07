@@ -6,11 +6,35 @@ import QueueStatsView from './QueuesStatsView';
 import { Actions } from '../../../states/QueuesStats';
 
 class QueueStatsViewContainer extends React.Component {
-  async componentDidMount() {
-    const { queuesList, setQueuesList } = this.props;
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      liveQuery: null
+    };
+
+    this.fetchQueues = this.fetchQueues.bind(this);
+    this.closeQueuesLiveQuery = this.closeQueuesLiveQuery.bind(this);
+  }
+
+  componentDidMount() {
+    this.fetchQueues();
+  }
+
+  async fetchQueues() {
+    const { queuesList, setQueuesList, supervisors, manager } = this.props;
+    const { attributes } = manager.workerClient;
+
+    const supervisor = supervisors.find(
+      supervisor => supervisor.email === attributes.email
+    );
+    const queuesListExpression = supervisor.queues
+      .map(queue => `"${queue}"`)
+      .join(',');
+
     const liveQuery = await this.props.manager.insightsClient.liveQuery(
       'tr-queue',
-      ''
+      `data.queue_name IN [${queuesListExpression}]`
     );
 
     const queues = new Map(queuesList);
@@ -23,38 +47,73 @@ class QueueStatsViewContainer extends React.Component {
     });
 
     setQueuesList(queues);
+
+    this.setState({ liveQuery });
+  }
+
+  componentWillUnmount() {
+    this.closeQueuesLiveQuery();
+  }
+
+  closeQueuesLiveQuery() {
+    const { liveQuery } = this.state;
+
+    if (liveQuery) {
+      liveQuery.close();
+    }
   }
 
   render() {
-    const { queuesList } = this.props.queuesStats;
+    const { queuesList, supervisiors } = this.props.queuesStats;
     const { tasks_list, workers } = this.props.workspaceStats;
 
-    const tasksByQueues = Array.from(tasks_list.values()).reduce((tasksByQueues, task) => {
-      const tasksAlreadyComputed = tasksByQueues.get(task.queue_name) && tasksByQueues.get(task.queue_name)[task.satus] || 0;
-
-      tasksByQueues.set(task.queue_name, {
-        ...tasksByQueues.get(task.queue_name),
-        [task.status]: tasksAlreadyComputed + 1
+    const tasksByQueuesZeroValues = new Map();
+    Array.from(queuesList.values()).forEach(queue => {
+      tasksByQueuesZeroValues.set(queue.friendly_name, {
+        assigned: 0,
+        pending: 0,
+        reserved: 0,
+        wrapping: 0
       });
+    });
 
-      return tasksByQueues;
-    }, new Map());
+    const tasksByQueues = Array.from(tasks_list.values()).reduce(
+      (tasksByQueues, task) => {
+        const tasksAlreadyComputed = tasksByQueues.get(task.queue_name)[
+          task.satus
+        ];
 
-    const workersByQueue = Array.from(workers.values()).reduce((workersByQueue, worker) => {
-      const { teams } = worker.attributes;
+        tasksByQueues.set(task.queue_name, {
+          ...tasksByQueues.get(task.queue_name),
+          [task.status]: tasksAlreadyComputed + 1
+        });
 
-      teams.forEach((team) => {
-        const workersAlreadyComputed = workersByQueue.get(team) && workersByQueue.get(team)[worker.activity_name.toLowerCase()] || 0;
+        return tasksByQueues;
+      },
+      tasksByQueuesZeroValues
+    );
 
-        workersByQueue.set(team, {
-          ...workersByQueue.get(team),
-          [worker.activity_name.toLowerCase()]: workersAlreadyComputed + 1
-        })
-      });
+    const workersByQueue = Array.from(workers.values()).reduce(
+      (workersByQueue, worker) => {
+        const { teams } = worker.attributes;
 
-      return workersByQueue;
-    }, new Map());
-  
+        teams.forEach(team => {
+          const workersAlreadyComputed =
+            (workersByQueue.get(team) &&
+              workersByQueue.get(team)[worker.activity_name.toLowerCase()]) ||
+            0;
+
+          workersByQueue.set(team, {
+            ...workersByQueue.get(team),
+            [worker.activity_name.toLowerCase()]: workersAlreadyComputed + 1
+          });
+        });
+
+        return workersByQueue;
+      },
+      new Map()
+    );
+
     return (
       <QueueStatsView
         queuesList={queuesList}
@@ -75,4 +134,7 @@ const mapDispatchToProps = dispatch => ({
   setTasksByQueues: bindActionCreators(Actions.setTasksByQueues, dispatch)
 });
 
-export default connect(mapStateToProps, mapDispatchToProps)(QueueStatsViewContainer);
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(QueueStatsViewContainer);

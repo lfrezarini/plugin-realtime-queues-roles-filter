@@ -22,7 +22,14 @@ export default class RealtimeQueuesRolesFilterPlugin extends FlexPlugin {
   init(flex, manager) {
     this.registerReducers(manager);
 
-    flex.QueuesStatsView.Content.replace(<CustomQueueStatsViewContainer manager={manager} key="custom-queue-stats-view"/>)
+    const supervisors = [
+      {
+        email: 'lfrezarini@twilio.com',
+        queues: ['Everyone', 'blue']
+      }
+    ];
+
+    flex.QueuesStatsView.Content.replace(<CustomQueueStatsViewContainer supervisors={supervisors} manager={manager} key="custom-queue-stats-view"/>);
   }
 
   /**
