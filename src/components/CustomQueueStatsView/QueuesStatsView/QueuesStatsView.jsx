@@ -11,6 +11,10 @@ import { QueueTableRow } from './QueuesStatsView.Styles';
 import { QueueAgents } from './QueuesStatsView.Components';
 
 const QueueStatsView = ({ queuesList, tasksByQueues, workersByQueue }) => {
+  if (!queuesList.size) {
+    return <div/>
+  }
+
   return (
     <Table style={{ tableLayout: 'auto' }}>
       <TableHead>

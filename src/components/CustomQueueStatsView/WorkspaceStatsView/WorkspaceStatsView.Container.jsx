@@ -12,6 +12,11 @@ class WorkspaceStatsViewContainer extends React.Component {
   constructor(props) {
     super(props);
 
+    this.state = {
+      workersLiveQuery: null,
+      tasksLiveQuery: null
+    };
+
     this.initWorkerStatistics = this.initWorkerStatistics.bind(this);
     this.handleWorkerUpdate = this.handleWorkerUpdate.bind(this);
     this.handleWorkerRemoval = this.handleWorkerRemoval.bind(this);
@@ -63,6 +68,8 @@ class WorkspaceStatsViewContainer extends React.Component {
       workers,
       activity_statistics: activityStatistics,
     });
+
+    this.setState({ workersLiveQuery: liveQuery });
   }
 
   handleWorkerUpdate({ value: data }) {
@@ -117,7 +124,7 @@ class WorkspaceStatsViewContainer extends React.Component {
     });
   }
 
-  initTasksStatistics() {
+  async initTasksStatistics() {
     const { manager, setWorkspaceStats, supervisors } = this.props;
     const { attributes } = manager.workerClient;
 
@@ -134,32 +141,33 @@ class WorkspaceStatsViewContainer extends React.Component {
       .map(queue => `"${queue}"`)
       .join(",");
 
-    manager.insightsClient.liveQuery('tr-task', `data.queue_name IN [${queuesListExpression}]`).then(liveQuery => {
-      const tasks = Object.values(liveQuery.getItems());
-      const tasksList = new Map();
+    const liveQuery = await manager.insightsClient.liveQuery('tr-task', `data.queue_name IN [${queuesListExpression}]`);
+    const tasks = Object.values(liveQuery.getItems());
+    const tasksList = new Map();
 
-      tasks.forEach(task => {
-        if (this.isTaskReservedForAnotherTeam(task)) {
-          return;
-        }
+    tasks.forEach(task => {
+      if (this.isTaskReservedForAnotherTeam(task)) {
+        return;
+      }
 
-        tasksByStatus[task.status]++;
-        tasksByPriority[task.priority]
-          ? tasksByPriority[task.priority]++
-          : (tasksByPriority[task.priority] = 1);
+      tasksByStatus[task.status]++;
+      tasksByPriority[task.priority]
+        ? tasksByPriority[task.priority]++
+        : (tasksByPriority[task.priority] = 1);
 
-        tasksList.set(task.task_sid, task);
-      });
-
-      liveQuery.on('itemUpdated', this.handleTaskUpdate);
-      liveQuery.on('itemRemoved', this.handleTaskRemoval);
-
-      setWorkspaceStats({
-        tasks_by_status: tasksByStatus,
-        tasks_by_priority: tasksByPriority,
-        tasks_list: tasksList
-      });
+      tasksList.set(task.task_sid, task);
     });
+
+    liveQuery.on('itemUpdated', this.handleTaskUpdate);
+    liveQuery.on('itemRemoved', this.handleTaskRemoval);
+
+    setWorkspaceStats({
+      tasks_by_status: tasksByStatus,
+      tasks_by_priority: tasksByPriority,
+      tasks_list: tasksList
+    });
+
+    this.setState({ tasksLiveQuery: liveQuery });
   }
 
   isTaskReservedForAnotherTeam(task) {
@@ -240,6 +248,18 @@ class WorkspaceStatsViewContainer extends React.Component {
       tasks_by_status: updatedTasksByStatus,
       tasks_list: updatedTasksStatus
     });
+  }
+
+  componentWillUnmount() {
+    const { tasksLiveQuery, workersLiveQuery } = this.state;
+
+    if (tasksLiveQuery) {
+      tasksLiveQuery.close();
+    }
+
+    if (workersLiveQuery) {
+      workersLiveQuery.close();
+    }
   }
 
   render() {

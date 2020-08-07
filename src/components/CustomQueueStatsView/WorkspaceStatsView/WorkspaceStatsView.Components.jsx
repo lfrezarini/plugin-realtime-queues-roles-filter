@@ -5,9 +5,9 @@ import {
   Template,
   templates,
   StackedBarChart,
-  Legend
+  Legend,
+  withTheme
 } from '@twilio/flex-ui';
-import { withTheme } from '@twilio/flex-ui-core';
 import { Marker } from './WorkspaceStatsView.Styles';
 
 export const ActiveTasks = ({ count }) => {

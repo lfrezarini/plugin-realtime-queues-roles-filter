@@ -64,7 +64,7 @@ class QueueStatsViewContainer extends React.Component {
   }
 
   render() {
-    const { queuesList, supervisiors } = this.props.queuesStats;
+    const { queuesList } = this.props.queuesStats;
     const { tasks_list, workers } = this.props.workspaceStats;
 
     const tasksByQueuesZeroValues = new Map();
