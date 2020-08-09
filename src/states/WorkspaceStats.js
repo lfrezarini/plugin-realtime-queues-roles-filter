@@ -3,22 +3,18 @@ const SET_WORKSPACE_STATS = `plugin/queue-stats/SET_WORKSPACE_STATS`;
 export const getInitialAcitvityStatistics = () => {
   return {
     offline: {
-      sid: process.env.REACT_APP_ACTIVITY_OFFLINE_SID,
       workers: 0,
       friendly_name: 'Offline'
     },
     break: {
-      sid: process.env.REACT_APP_ACTIVITY_BREAK_SID,
       workers: 0,
       friendly_name: 'Break'
     },
     available: {
-      sid: process.env.REACT_APP_ACTIVITY_AVAILABLE_SID,
       workers: 0,
       friendly_name: 'Available'
     },
     unavailable: {
-      sid: process.env.REACT_APP_ACTIVITY_UNAVAILABLE_SID,
       workers: 0,
       friendly_name: 'Unavailable'
     }
