@@ -8,7 +8,10 @@ export const QueueTableRow = styled(TableRow)`
   }
 
   .agents-stats {
-    max-width: 20px;
-    padding-right: 10px !important;
+    width: 193px;
+  }
+
+  .agents-stats > div {
+    width: 146px;
   }
 `;
