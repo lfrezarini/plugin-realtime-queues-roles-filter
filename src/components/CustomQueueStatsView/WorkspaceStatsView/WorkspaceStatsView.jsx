@@ -7,12 +7,13 @@ import {
   LongestWaitingCall,
   AgentByActivityChart
 } from './WorkspaceStatsView.Components';
+import { Wrapper } from './WorkspaceStatsView.Styles';
 
 const WorkspaceStatsView = ({ workspaceStats }) => {
   const { tasks_by_status } = workspaceStats;
 
   return (
-    <Grid container spacing={24} style={{ padding: '0px 16px' }}>
+    <Wrapper container spacing={16} style={{ padding: '0px 16px' }}>
       <Grid item xs={3}>
         <ActiveTasks
           count={
@@ -51,7 +52,7 @@ const WorkspaceStatsView = ({ workspaceStats }) => {
           }
         />
       </Grid>
-    </Grid>
+    </Wrapper>
   );
 };
 
