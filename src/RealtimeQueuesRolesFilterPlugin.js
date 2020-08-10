@@ -5,6 +5,7 @@ import { FlexPlugin } from 'flex-plugin';
 import reducers, { namespace } from './states';
 import CustomQueueStatsViewContainer from './components/CustomQueueStatsView/CustomQueueStatsView.Container';
 import { supervisors } from './config/supervisors.json';
+import { applyDefaultFilters, setTeamsFilters } from './utils/teamsFilter';
 
 const PLUGIN_NAME = 'RealtimeQueuesRolesFilterPlugin';
 
@@ -23,6 +24,9 @@ export default class RealtimeQueuesRolesFilterPlugin extends FlexPlugin {
   init(flex, manager) {
     this.registerReducers(manager);
 
+    applyDefaultFilters(manager);
+    setTeamsFilters(manager);
+    
     flex.QueuesStatsView.Content.replace(<CustomQueueStatsViewContainer supervisors={supervisors} manager={manager} key="custom-queue-stats-view"/>);
   }
 

@@ -1,8 +1,21 @@
-# Your custom Twilio Flex Plugin
+# Realtime Stats with permission schema
 
-Twilio Flex Plugins allow you to customize the appearance and behavior of [Twilio Flex](https://www.twilio.com/flex). If you want to learn more about the capabilities and how to use the API, check out our [Flex documentation](https://www.twilio.com/docs/flex).
+This plugin allows you to filter which realtime stats the current Flex user is going to see. It is common to use this schema with BPO permissioning. 
 
-## Setup
+
+## How to use
+
+1. Clone this repository
+2. Copy `.env.example` to `.env` and set the following variables:
+    - REACT_APP_SELECTION_ATTRIBUTE: attribute the plugin will check to select workers inside that permission group. The same attribute is checked in the current Flex user.
+3. Copy `src/config/supervisors.example.json` to `src/config/supervisors.json`. This file contains the supervisors with the queues they are allowed to see. 
+4. Check the following section to run and deploy your plugin.
+
+**Note**: the attribute used to check workers in a queues is `routing.skills` array in the worker attributes. If you want to change that, replace this expression everywhere it is used.   
+
+## Configuration 
+
+### Setup
 
 Make sure you have [Node.js](https://nodejs.org) as well as [`npm`](https://npmjs.com) installed.
 
@@ -15,7 +28,7 @@ cd
 npm install
 ```
 
-## Development
+### Development
 
 In order to develop locally, you can use the Webpack Dev Server by running:
 
@@ -31,7 +44,7 @@ PORT=3001 npm start
 
 When you make changes to your code, the browser window will be automatically refreshed.
 
-## Deploy
+### Deploy
 
 When you are ready to deploy your plugin, in your terminal run:
 
