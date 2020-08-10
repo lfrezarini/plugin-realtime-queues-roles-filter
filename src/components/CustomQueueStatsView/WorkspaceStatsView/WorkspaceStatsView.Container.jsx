@@ -48,9 +48,11 @@ class WorkspaceStatsViewContainer extends React.Component {
     const workers = new Map();
     
     // TODO: build expression to support multiple teams
+    const { REACT_APP_SELECTION_ATTRIBUTE } = process.env;
+
     const liveQuery = await manager.insightsClient.liveQuery(
       'tr-worker',
-      `data.attributes.teams == "${workerAttributes.teams}"`
+      `data.attributes.${REACT_APP_SELECTION_ATTRIBUTE} == "${workerAttributes[REACT_APP_SELECTION_ATTRIBUTE]}"`
     );
 
     const items = Object.values(liveQuery.getItems());
@@ -115,7 +117,10 @@ class WorkspaceStatsViewContainer extends React.Component {
       removedWorker.activity_name.toLowerCase()
     ];
 
-    activity_statistics[removedWorker].workers = oldWorkersCount - 1;
+    if(activity_statistics[removedWorker]) {
+      activity_statistics[removedWorker].workers = oldWorkersCount - 1;
+    }
+
     workers.delete(workerSid);
 
     setWorkspaceStats({
