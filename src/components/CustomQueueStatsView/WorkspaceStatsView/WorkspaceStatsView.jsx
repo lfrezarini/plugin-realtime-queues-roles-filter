@@ -4,7 +4,6 @@ import { Grid } from '@material-ui/core';
 import {
   ActiveTasks,
   WaitingTasks,
-  LongestWaitingCall,
   AgentByActivityChart
 } from './WorkspaceStatsView.Components';
 import { Wrapper } from './WorkspaceStatsView.Styles';
@@ -14,7 +13,7 @@ const WorkspaceStatsView = ({ workspaceStats }) => {
 
   return (
     <Wrapper container spacing={16} style={{ padding: '0px 16px' }}>
-      <Grid item xs={3}>
+      <Grid item xs={4}>
         <ActiveTasks
           count={
             tasks_by_status &&
@@ -22,7 +21,7 @@ const WorkspaceStatsView = ({ workspaceStats }) => {
           }
         />
       </Grid>
-      <Grid item xs={3}>
+      <Grid item xs={4}>
         <WaitingTasks
           count={
             tasks_by_status &&
@@ -30,10 +29,7 @@ const WorkspaceStatsView = ({ workspaceStats }) => {
           }
         />
       </Grid>
-      <Grid item xs={3}>
-        <LongestWaitingCall />
-      </Grid>
-      <Grid item xs={3}>
+      <Grid item xs={4}>
         <AgentByActivityChart
           availableAgents={
             workspaceStats &&
